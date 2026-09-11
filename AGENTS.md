@@ -52,7 +52,7 @@ ortakpay/
 ## Teknoloji Stack
 | Katman | Teknoloji |
 |---|---|
-| Dil/Runtime | Java 21, Spring Boot 3.3+ |
+| Dil/Runtime | Java 21, Spring Boot 4.1.1 |
 | Data | Spring Data JPA + Hibernate, PostgreSQL, Flyway |
 | Security | Spring Security, JJWT (JWT stateless auth) |
 | Messaging | Spring AMQP (RabbitMQ) |
@@ -91,6 +91,25 @@ ortakpay/
   to Balance entity`).
 - Faz bazında feature branch aç (`feature/expense-splitting` gibi), faz bitince
   `main`'e merge et.
+
+## Sürüm Notu (Faz 0'da alınan karar)
+Faz 0 sırasında Spring Initializr'ın artık Spring Boot 3.3.x sunmadığı (yalnızca
+4.0.x/4.1.x/4.2.x mevcut) görüldü. Kullanıcıyla teyitleşilerek **Spring Boot
+4.1.1** ile devam edilmesine karar verildi. Bunun pratik etkileri:
+- Spring Security artık yalnızca lambda DSL kabul ediyor (Faz 2'de buna göre
+  yazılacak).
+- Bazı starter adları değişti: `spring-boot-starter-web` yerine
+  `spring-boot-starter-webmvc`; tek bir `spring-boot-starter-test` yerine her
+  starter'ın kendi `-test` varyantı (`spring-boot-starter-data-jpa-test` vb.)
+  kullanılıyor.
+- MapStruct, Initializr'ın dependency listesinde yok; `core-service/pom.xml`'e
+  elle eklendi (mapstruct + mapstruct-processor + lombok-mapstruct-binding).
+- `postgres-core` için host portu bilinçli olarak `5434` seçildi (`5432`
+  değil): `5432` Postgres'in evrensel varsayılan portu olduğundan, geliştirme
+  makinelerinde yerel bir Postgres kurulumu bu portu zaten dinliyor olabilir
+  (bu projede de öyle oldu) ve Docker'ın port binding'iyle çakışıp istekleri
+  sessizce yanlış veritabanına yönlendirebilir. Container'ın iç portu yine
+  standart `5432`.
 
 ## Faz Yol Haritası
 0. Repo yapısı + Docker Compose iskeleti (Postgres + RabbitMQ)
