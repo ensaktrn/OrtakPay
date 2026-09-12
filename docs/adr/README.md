@@ -12,6 +12,7 @@ these decisions sit inside.
 | [0003](./0003-uuid-primary-keys.md) | UUID primary keys — no cross-service ID collision risk |
 | [0004](./0004-materialized-balance-with-optimistic-locking.md) | Materialized `Balance` table + optimistic locking, not on-the-fly aggregation or pessimistic locking |
 | [0005](./0005-timestamptz-and-instant.md) | `TIMESTAMPTZ` columns mapped to `java.time.Instant`, not `TIMESTAMP`/`LocalDateTime` |
+| [0006](./0006-csrf-disabled-for-stateless-api.md) | CSRF disabled — safe because the stateless JWT API has no cookie/session for a browser to attach automatically |
 
 ## Adding a new ADR
 
