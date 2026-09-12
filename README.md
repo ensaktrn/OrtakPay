@@ -7,7 +7,8 @@ ve mülakatta savunulabilir mühendislik kararlarıyla üretmeyi hedefleyen bir
 öğrenme projesidir.
 
 Mimari kararlar, veri modeli ve akış diyagramları için bkz.
-[ARCHITECTURE.md](./ARCHITECTURE.md). Geliştirme kuralları ve faz yol haritası
+[ARCHITECTURE.md](./ARCHITECTURE.md); tekil teknik kararların gerekçeleri için
+bkz. [docs/adr/](./docs/adr/README.md). Geliştirme kuralları ve faz yol haritası
 için bkz. [AGENTS.md](./AGENTS.md).
 
 ## Proje Yapısı
