@@ -28,3 +28,8 @@ server:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-insecure-secret-please-override-in-real-env-1234567890}
+    expiration-minutes: 60
