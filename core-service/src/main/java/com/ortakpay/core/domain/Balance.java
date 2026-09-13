@@ -17,15 +17,17 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 /**
  * Materialized per-user, per-group net balance. Updated transactionally on every
  * expense/settlement; {@code version} enables optimistic locking to guard against
- * lost updates when two expenses touch the same balance concurrently (see Faz 3).
+ * lost updates when two expenses touch the same balance concurrently.
+ *
+ * <p>No blanket {@code @Setter}: {@code netAmount} only ever changes through
+ * {@link #applyDelta(BigDecimal)}, and {@code version} must never be set by
+ * application code at all - JPA owns it entirely.
  */
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -54,4 +56,8 @@ public class Balance {
     @Version
     @Column(nullable = false)
     private Long version;
+
+    public void applyDelta(BigDecimal delta) {
+        this.netAmount = this.netAmount.add(delta);
+    }
 }
