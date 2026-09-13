@@ -1,6 +1,7 @@
 package com.ortakpay.core.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -12,6 +13,7 @@ import com.ortakpay.core.domain.Expense;
 import com.ortakpay.core.domain.ExpenseShare;
 import com.ortakpay.core.domain.Group;
 import com.ortakpay.core.domain.User;
+import com.ortakpay.core.exception.GroupAccessDeniedException;
 import com.ortakpay.core.repository.BalanceRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,6 +30,9 @@ class BalanceServiceTest {
 
     @Mock
     private BalanceRepository balanceRepository;
+
+    @Mock
+    private GroupAccessGuard groupAccessGuard;
 
     @InjectMocks
     private BalanceService balanceService;
@@ -90,5 +95,18 @@ class BalanceServiceTest {
         assertThat(ower1Balance.getNetAmount()).isEqualByComparingTo("-5.00");
         assertThat(ower2Balance.getNetAmount()).isEqualByComparingTo("-5.00");
         verify(balanceRepository, times(3)).save(any(Balance.class));
+    }
+
+    @Test
+    void getGroupBalances_throwsGroupAccessDenied_whenRequesterNotAMember() {
+        UUID groupId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+        when(groupAccessGuard.requireMembership(groupId, requesterId))
+                .thenThrow(new GroupAccessDeniedException("User is not a member of this group"));
+
+        assertThatThrownBy(() -> balanceService.getGroupBalances(groupId, requesterId))
+                .isInstanceOf(GroupAccessDeniedException.class);
+
+        verify(balanceRepository, never()).findByGroup_Id(any());
     }
 }

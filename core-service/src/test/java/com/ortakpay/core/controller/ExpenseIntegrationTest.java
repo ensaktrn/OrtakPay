@@ -1,6 +1,7 @@
 package com.ortakpay.core.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,11 +33,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
- * Note: the calling/authenticated user here is unrelated to the group under test -
- * resource-based authorization ("is the caller allowed to touch this group at all")
- * is explicitly out of scope until Faz 4, so any authenticated user's token is
- * sufficient to pass Spring Security's gate; only paidBy/participants membership
- * in the group is checked at this phase.
+ * The authenticated caller must be a group member (Faz 4's GroupAccessGuard), so
+ * every test below has the registered/logged-in user also be the payer - who is
+ * always added as a group member anyway for the split/balance assertions to make
+ * sense. A separate caller-is-not-a-member 403 case belongs to GroupIntegrationTest,
+ * not here.
  */
 class ExpenseIntegrationTest extends AbstractIntegrationTest {
 
@@ -59,8 +60,9 @@ class ExpenseIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void equalSplit_createsExpense_andUpdatesBalancesCorrectly() throws Exception {
-        String token = registerAndLogin();
-        User payer = persistUser();
+        AuthedUser caller = registerAndLogin();
+        String token = caller.token();
+        User payer = caller.user();
         User ower1 = persistUser();
         User ower2 = persistUser();
         Group group = persistGroupWithMembers(payer, payer, ower1, ower2);
@@ -102,8 +104,9 @@ class ExpenseIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void exactSplit_whenTotalsDoNotMatch_returns400() throws Exception {
-        String token = registerAndLogin();
-        User payer = persistUser();
+        AuthedUser caller = registerAndLogin();
+        String token = caller.token();
+        User payer = caller.user();
         User ower = persistUser();
         Group group = persistGroupWithMembers(payer, payer, ower);
 
@@ -126,8 +129,9 @@ class ExpenseIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void nonGroupMemberParticipant_returns400() throws Exception {
-        String token = registerAndLogin();
-        User payer = persistUser();
+        AuthedUser caller = registerAndLogin();
+        String token = caller.token();
+        User payer = caller.user();
         User outsider = persistUser(); // never added as a member of the group below
         Group group = persistGroupWithMembers(payer, payer);
 
@@ -148,8 +152,9 @@ class ExpenseIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void duplicateParticipantUserId_returns400NotServerError() throws Exception {
-        String token = registerAndLogin();
-        User payer = persistUser();
+        AuthedUser caller = registerAndLogin();
+        String token = caller.token();
+        User payer = caller.user();
         User ower = persistUser();
         Group group = persistGroupWithMembers(payer, payer, ower);
 
@@ -172,7 +177,80 @@ class ExpenseIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.detail").value("Participant list contains duplicate user IDs"));
     }
 
-    private String registerAndLogin() throws Exception {
+    @Test
+    void getExpenses_returnsPagedResultsForGroupMember() throws Exception {
+        AuthedUser caller = registerAndLogin();
+        String token = caller.token();
+        User payer = caller.user();
+        User ower = persistUser();
+        Group group = persistGroupWithMembers(payer, payer, ower);
+
+        CreateExpenseRequest request = new CreateExpenseRequest(
+                payer.getId(),
+                new BigDecimal("10.00"),
+                "Coffee",
+                SplitType.EQUAL,
+                List.of(new ParticipantInput(payer.getId(), null), new ParticipantInput(ower.getId(), null)));
+        mockMvc.perform(post("/api/groups/{groupId}/expenses", group.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        // Verifies Page<ExpenseResponse> actually serializes under Spring Boot 4's
+        // Jackson 3 default stack (see docs/adr/0007-jackson-2-3-coexistence.md) -
+        // not just that the 403 guard path short-circuits before ever reaching it.
+        mockMvc.perform(get("/api/groups/{groupId}/expenses", group.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].description").value("Coffee"))
+                .andExpect(jsonPath("$.content[0].shares.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void getExpenses_defaultsToNewestFirst() throws Exception {
+        AuthedUser caller = registerAndLogin();
+        String token = caller.token();
+        User payer = caller.user();
+        Group group = persistGroupWithMembers(payer, payer);
+
+        // Sleeps guarantee distinct createdAt instants: three requests fired back
+        // to back could otherwise land on the same millisecond, which would make
+        // the ordering assertion below flaky (id is a random UUID, not a
+        // chronological tiebreaker - see ExpenseService.DEFAULT_EXPENSE_SORT).
+        createSingleParticipantExpense(token, group.getId(), payer.getId(), "First");
+        Thread.sleep(10);
+        createSingleParticipantExpense(token, group.getId(), payer.getId(), "Second");
+        Thread.sleep(10);
+        createSingleParticipantExpense(token, group.getId(), payer.getId(), "Third");
+
+        mockMvc.perform(get("/api/groups/{groupId}/expenses", group.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(3))
+                .andExpect(jsonPath("$.content[0].description").value("Third"))
+                .andExpect(jsonPath("$.content[1].description").value("Second"))
+                .andExpect(jsonPath("$.content[2].description").value("First"));
+    }
+
+    private void createSingleParticipantExpense(String token, UUID groupId, UUID payerId, String description)
+            throws Exception {
+        CreateExpenseRequest request = new CreateExpenseRequest(
+                payerId,
+                new BigDecimal("5.00"),
+                description,
+                SplitType.EQUAL,
+                List.of(new ParticipantInput(payerId, null)));
+        mockMvc.perform(post("/api/groups/{groupId}/expenses", groupId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+    }
+
+    private AuthedUser registerAndLogin() throws Exception {
         String email = "requester-" + UUID.randomUUID() + "@example.com";
         RegisterRequest registerRequest = new RegisterRequest(email, "password123", "Requester");
         mockMvc.perform(post("/api/auth/register")
@@ -186,11 +264,15 @@ class ExpenseIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper
+        String token = objectMapper
                 .readTree(result.getResponse().getContentAsString())
                 .get("token")
                 .asText();
+        User user = userRepository.findByEmail(email).orElseThrow();
+        return new AuthedUser(token, user);
     }
+
+    private record AuthedUser(String token, User user) {}
 
     private User persistUser() {
         return userRepository.save(User.builder()

@@ -5,8 +5,11 @@ import com.ortakpay.core.domain.Expense;
 import com.ortakpay.core.domain.ExpenseShare;
 import com.ortakpay.core.domain.Group;
 import com.ortakpay.core.domain.User;
+import com.ortakpay.core.dto.BalanceResponse;
 import com.ortakpay.core.repository.BalanceRepository;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class BalanceService {
 
     private final BalanceRepository balanceRepository;
+    private final GroupAccessGuard groupAccessGuard;
 
     @Transactional
     public Balance getOrCreate(Group group, User user) {
@@ -26,21 +30,36 @@ public class BalanceService {
     }
 
     /**
-     * Applies one expense's effect to every balance it touches, one {@code save()}
-     * per row so each hits its own optimistic-lock check on flush - batching these
-     * into a single save at the end would still work, but calling save() per delta
-     * keeps the intent (and the {@code @Version} check) explicit at each step.
+     * Loads (or creates) the balance for group+user, applies the delta, and saves
+     * it - one call per row so each hits its own optimistic-lock check on flush.
+     * Shared by {@link #applyExpense} and {@code SettlementService}, which both
+     * need exactly this "adjust one balance row transactionally" primitive.
      */
     @Transactional
-    public void applyExpense(Expense expense, List<ExpenseShare> shares) {
-        Balance payerBalance = getOrCreate(expense.getGroup(), expense.getPaidBy());
-        payerBalance.applyDelta(expense.getAmount());
-        balanceRepository.save(payerBalance);
+    public Balance applyDeltaAndSave(Group group, User user, BigDecimal delta) {
+        Balance balance = getOrCreate(group, user);
+        balance.applyDelta(delta);
+        return balanceRepository.save(balance);
+    }
 
+    @Transactional
+    public void applyExpense(Expense expense, List<ExpenseShare> shares) {
+        applyDeltaAndSave(expense.getGroup(), expense.getPaidBy(), expense.getAmount());
         for (ExpenseShare share : shares) {
-            Balance owerBalance = getOrCreate(expense.getGroup(), share.getUser());
-            owerBalance.applyDelta(share.getOwedAmount().negate());
-            balanceRepository.save(owerBalance);
+            applyDeltaAndSave(expense.getGroup(), share.getUser(), share.getOwedAmount().negate());
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<BalanceResponse> getGroupBalances(UUID groupId, UUID requesterId) {
+        groupAccessGuard.requireMembership(groupId, requesterId);
+
+        return balanceRepository.findByGroup_Id(groupId).stream()
+                .map(balance -> new BalanceResponse(
+                        balance.getUser().getId(),
+                        balance.getUser().getEmail(),
+                        balance.getUser().getDisplayName(),
+                        balance.getNetAmount()))
+                .toList();
     }
 }
