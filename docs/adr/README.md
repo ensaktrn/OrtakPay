@@ -13,6 +13,8 @@ these decisions sit inside.
 | [0004](./0004-materialized-balance-with-optimistic-locking.md) | Materialized `Balance` table + optimistic locking, not on-the-fly aggregation or pessimistic locking |
 | [0005](./0005-timestamptz-and-instant.md) | `TIMESTAMPTZ` columns mapped to `java.time.Instant`, not `TIMESTAMP`/`LocalDateTime` |
 | [0006](./0006-csrf-disabled-for-stateless-api.md) | CSRF disabled — safe because the stateless JWT API has no cookie/session for a browser to attach automatically |
+| [0007](./0007-jackson-2-3-coexistence.md) | Local Jackson 2 `ObjectMapper` for ProblemDetail/simple DTOs, scoped narrowly since Spring Boot 4 defaults to Jackson 3 |
+| [0008](./0008-balance-get-or-create-race-condition.md) | `Balance.getOrCreate`'s first-insert race left unhandled for now — low likelihood at this scale, two known fixes if it matters later |
 
 ## Adding a new ADR
 
