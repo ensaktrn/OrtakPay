@@ -1,5 +1,7 @@
 # OrtakPay
 
+![CI](https://github.com/ensaktrn/OrtakPay/actions/workflows/ci.yml/badge.svg)
+
 OrtakPay, arkadaş grupları arasında ortak masrafları (kira, seyahat, yemek vb.)
 adil şekilde paylaştırmayı sağlayan bir masraf paylaşım (expense-splitting)
 platformudur. Splitwise benzeri bir ürünün backend'ini, portfolyo kalitesinde
