@@ -50,6 +50,67 @@ services:
       timeout: 5s
       retries: 5
 
+  core-service:
+    build:
+      context: ./core-service
+    container_name: ortakpay-core-service
+    environment:
+      # Container-network overrides only - .env's host-published ports (5434,
+      # 5672) are for reaching these from the host machine, not for
+      # container-to-container traffic, which always uses the standard
+      # in-network port (5432/5672) and the service's compose name as host.
+      CORE_DB_HOST: postgres-core
+      CORE_DB_PORT: 5432
+      CORE_DB_NAME: ${CORE_DB_NAME}
+      CORE_DB_USER: ${CORE_DB_USER}
+      CORE_DB_PASSWORD: ${CORE_DB_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-core:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  notification-service:
+    build:
+      context: ./notification-service
+    container_name: ortakpay-notification-service
+    environment:
+      NOTIF_DB_HOST: postgres-notification
+      NOTIF_DB_PORT: 5432
+      NOTIF_DB_NAME: ${NOTIF_DB_NAME}
+      NOTIF_DB_USER: ${NOTIF_DB_USER}
+      NOTIF_DB_PASSWORD: ${NOTIF_DB_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    # No host port mapping - this service is only reached via RabbitMQ, never
+    # directly by a client, so it stays internal to the compose network.
+    depends_on:
+      postgres-notification:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 volumes:
   postgres-core-data:
   postgres-notification-data:

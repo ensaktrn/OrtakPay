@@ -83,7 +83,53 @@ cd notification-service && mvn clean install
 > sorunsuz ayağa kalktığını doğrular. Bu yüzden build/test öncesi
 > `docker-compose up` ile altyapının ayakta olması gerekir.
 
+## Docker Compose ile Çalıştırma
+
+Faz 7 itibarıyla `core-service` ve `notification-service`'in kendileri de
+docker-compose'a dahil — tüm stack (2x Postgres + RabbitMQ + 2 servis) tek
+komutla, kaynak koddan build edilerek ayağa kalkar. Maven/JDK kurulu olması
+gerekmez, sadece Docker.
+
+```bash
+cp .env.example .env   # ilk kurulumda
+docker-compose up --build -d
+```
+
+`docker-compose ps` ile 5 container'ın da `healthy` olduğunu doğrulayabilirsin
+(uygulama servisleri `/actuator/health` endpoint'i üzerinden probe edilir,
+bu yüzden ayağa kalkmaları biraz zaman alır — `depends_on: condition:
+service_healthy` sayesinde core-service ve notification-service, altyapı
+gerçekten hazır olmadan başlamaz).
+
+Açık portlar:
+- `8080` → core-service REST API (host'a açık)
+- `15672` → RabbitMQ management UI (`http://localhost:15672`)
+- `5434` / `5433` → Postgres (core / notification), sadece debug amaçlı
+- `notification-service` **host'a port açmaz** — sadece RabbitMQ üzerinden
+  event tüketir, dışarıdan hiçbir client'ın doğrudan çağırmasına gerek yoktur
+
+Swagger UI: `http://localhost:8080/swagger-ui.html`
+
+Durdurmak için:
+
+```bash
+docker-compose down        # container'ları durdur, veri kalır
+docker-compose down -v     # + volume'ları da sil (temiz sıfırdan başlangıç)
+```
+
+### Uçtan uca smoke test
+
+Stack ayaktayken, register → login → grup oluştur → masraf oluştur akışını
+uçtan uca doğrulayan script:
+
+```bash
+./e2e-smoke-test.sh
+```
+
+Her adımda beklenen HTTP status kontrol edilir; ilk başarısız adımda script
+anlamlı bir hata mesajıyla `exit 1` döner. Script `curl` ve `jq` gerektirir.
+
 ## Faz Durumu
 
 Bkz. [AGENTS.md → Faz Yol Haritası](./AGENTS.md#faz-yol-haritası). Şu an
-**Faz 0** (repo iskeleti + Docker Compose) tamamlanmıştır.
+**Faz 7** (uçtan uca Docker Compose ile çalıştırma) tamamlanmıştır.
