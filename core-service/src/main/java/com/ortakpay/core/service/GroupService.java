@@ -4,6 +4,7 @@ import com.ortakpay.core.domain.Group;
 import com.ortakpay.core.domain.GroupMember;
 import com.ortakpay.core.domain.User;
 import com.ortakpay.core.dto.GroupResponse;
+import com.ortakpay.core.event.GroupMemberAddedInternalEvent;
 import com.ortakpay.core.exception.DuplicateGroupMemberException;
 import com.ortakpay.core.exception.UserNotFoundException;
 import com.ortakpay.core.repository.GroupMemberRepository;
@@ -12,6 +13,7 @@ import com.ortakpay.core.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ public class GroupService {
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final GroupAccessGuard groupAccessGuard;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public GroupResponse createGroup(String name, UUID creatorId) {
@@ -47,6 +50,15 @@ public class GroupService {
         }
 
         groupMemberRepository.save(GroupMember.builder().group(group).user(user).build());
+
+        User requester = userRepository.getReferenceById(requesterId);
+        applicationEventPublisher.publishEvent(new GroupMemberAddedInternalEvent(
+                groupId,
+                group.getName(),
+                user.getId(),
+                user.getEmail(),
+                user.getDisplayName(),
+                requester.getDisplayName()));
     }
 
     @Transactional(readOnly = true)

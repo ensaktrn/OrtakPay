@@ -7,6 +7,8 @@ import com.ortakpay.core.domain.User;
 import com.ortakpay.core.dto.CreateExpenseRequest;
 import com.ortakpay.core.dto.ExpenseResponse;
 import com.ortakpay.core.dto.ParticipantInput;
+import com.ortakpay.core.event.ExpenseCreatedInternalEvent;
+import com.ortakpay.core.event.ParticipantShare;
 import com.ortakpay.core.exception.GroupMembershipException;
 import com.ortakpay.core.exception.InvalidSplitException;
 import com.ortakpay.core.repository.ExpenseRepository;
@@ -22,6 +24,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -49,6 +52,7 @@ public class ExpenseService {
     private final SplitStrategyResolver splitStrategyResolver;
     private final BalanceService balanceService;
     private final GroupAccessGuard groupAccessGuard;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public ExpenseResponse createExpense(UUID groupId, UUID currentUserId, CreateExpenseRequest request) {
@@ -82,6 +86,22 @@ public class ExpenseService {
                 expenseShareRepository.saveAll(strategy.calculateShares(expense, request.participants()));
 
         balanceService.applyExpense(expense, shares);
+
+        applicationEventPublisher.publishEvent(new ExpenseCreatedInternalEvent(
+                expense.getId(),
+                group.getId(),
+                group.getName(),
+                payer.getId(),
+                payer.getDisplayName(),
+                expense.getAmount(),
+                expense.getDescription(),
+                shares.stream()
+                        .map(share -> new ParticipantShare(
+                                share.getUser().getId(),
+                                share.getUser().getEmail(),
+                                share.getUser().getDisplayName(),
+                                share.getOwedAmount()))
+                        .toList()));
 
         return toExpenseResponse(expense, shares);
     }

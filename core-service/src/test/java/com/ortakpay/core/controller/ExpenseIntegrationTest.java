@@ -198,15 +198,17 @@ class ExpenseIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isCreated());
 
         // Verifies Page<ExpenseResponse> actually serializes under Spring Boot 4's
-        // Jackson 3 default stack (see docs/adr/0007-jackson-2-3-coexistence.md) -
-        // not just that the 403 guard path short-circuits before ever reaching it.
+        // Jackson 3 default stack (see docs/adr/0007-jackson-2-3-coexistence.md) as
+        // Spring Data's stable PagedModel DTO (content + a nested "page" object),
+        // not the raw, JSON-shape-unstable PageImpl - see application.yml's
+        // spring.data.web.pageable.serialization-mode: via-dto.
         mockMvc.perform(get("/api/groups/{groupId}/expenses", group.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].description").value("Coffee"))
                 .andExpect(jsonPath("$.content[0].shares.length()").value(2))
-                .andExpect(jsonPath("$.totalElements").value(1));
+                .andExpect(jsonPath("$.page.totalElements").value(1));
     }
 
     @Test

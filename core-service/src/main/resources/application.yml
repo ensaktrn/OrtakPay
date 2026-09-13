@@ -22,6 +22,13 @@ spring:
     username: ${RABBITMQ_USER:ortakpay}
     password: ${RABBITMQ_PASSWORD:change-me}
 
+  # Serializes Page<T> as Spring Data's stable PagedModel DTO instead of the raw
+  # PageImpl, whose JSON shape Spring explicitly does not guarantee across versions.
+  data:
+    web:
+      pageable:
+        serialization-mode: via-dto
+
 server:
   port: 8080
 
