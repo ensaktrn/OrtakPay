@@ -15,6 +15,7 @@ these decisions sit inside.
 | [0006](./0006-csrf-disabled-for-stateless-api.md) | CSRF disabled — safe because the stateless JWT API has no cookie/session for a browser to attach automatically |
 | [0007](./0007-jackson-2-3-coexistence.md) | Local Jackson 2 `ObjectMapper` for ProblemDetail/simple DTOs, scoped narrowly since Spring Boot 4 defaults to Jackson 3 |
 | [0008](./0008-balance-get-or-create-race-condition.md) | `Balance.getOrCreate`'s first-insert race left unhandled for now — low likelihood at this scale, two known fixes if it matters later |
+| [0009](./0009-explicit-service-layer-authorization.md) | Explicit `GroupAccessGuard.requireMembership()` calls in the service layer, not `@PreAuthorize` + a PermissionEvaluator |
 
 ## Adding a new ADR
 
