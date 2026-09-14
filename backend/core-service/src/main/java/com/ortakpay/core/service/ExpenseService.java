@@ -132,6 +132,8 @@ public class ExpenseService {
                 .toList();
         return new ExpenseResponse(
                 expense.getId(),
+                expense.getPaidBy().getId(),
+                expense.getPaidBy().getDisplayName(),
                 expense.getAmount(),
                 expense.getDescription(),
                 expense.getSplitType(),

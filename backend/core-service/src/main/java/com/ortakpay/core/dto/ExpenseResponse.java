@@ -6,7 +6,13 @@ import java.util.List;
 import java.util.UUID;
 
 public record ExpenseResponse(
-        UUID id, BigDecimal amount, String description, SplitType splitType, List<ShareResponse> shares) {
+        UUID id,
+        UUID paidByUserId,
+        String paidByDisplayName,
+        BigDecimal amount,
+        String description,
+        SplitType splitType,
+        List<ShareResponse> shares) {
 
     public record ShareResponse(UUID userId, BigDecimal owedAmount) {}
 }

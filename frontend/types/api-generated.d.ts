@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getMyGroups"];
         put?: never;
         post: operations["createGroup"];
         delete?: never;
@@ -204,6 +204,9 @@ export interface components {
         ExpenseResponse: {
             /** Format: uuid */
             id?: string;
+            /** Format: uuid */
+            paidByUserId?: string;
+            paidByDisplayName?: string;
             amount?: number;
             description?: string;
             /** @enum {string} */
@@ -236,6 +239,13 @@ export interface components {
             token?: string;
             /** Format: date-time */
             expiresAt?: string;
+        };
+        GroupSummaryResponse: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            /** Format: int32 */
+            memberCount?: number;
         };
         Pageable: {
             /** Format: int32 */
@@ -274,6 +284,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getMyGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GroupSummaryResponse"][];
+                };
+            };
+        };
+    };
     createGroup: {
         parameters: {
             query?: never;
