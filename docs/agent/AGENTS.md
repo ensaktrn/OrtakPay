@@ -26,15 +26,20 @@ testing konularında **derinlemesine** anlayış kazanmasıdır.
 
 ```
 ortakpay/
-├── core-service/
-│   ├── src/main/java/com/ortakpay/core/...
-│   └── pom.xml
-├── notification-service/
-│   ├── src/main/java/com/ortakpay/notification/...
-│   └── pom.xml
+├── backend/
+│   ├── core-service/
+│   │   ├── src/main/java/com/ortakpay/core/...
+│   │   └── pom.xml
+│   └── notification-service/
+│       ├── src/main/java/com/ortakpay/notification/...
+│       └── pom.xml
+├── frontend/                # Next.js projesi (henüz iskelet)
+├── docs/
+│   ├── agent/
+│   │   ├── AGENTS.md
+│   │   └── ARCHITECTURE.md
+│   └── adr/
 ├── docker-compose.yml
-├── AGENTS.md
-├── ARCHITECTURE.md
 └── README.md
 ```
 

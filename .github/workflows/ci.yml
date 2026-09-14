@@ -15,7 +15,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - working-directory: core-service
+      - working-directory: backend/core-service
         run: mvn -B clean install
 
   notification-service:
@@ -27,5 +27,5 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - working-directory: notification-service
+      - working-directory: backend/notification-service
         run: mvn -B clean install

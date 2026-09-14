@@ -9,17 +9,19 @@ ve mülakatta savunulabilir mühendislik kararlarıyla üretmeyi hedefleyen bir
 öğrenme projesidir.
 
 Mimari kararlar, veri modeli ve akış diyagramları için bkz.
-[ARCHITECTURE.md](./ARCHITECTURE.md); tekil teknik kararların gerekçeleri için
-bkz. [docs/adr/](./docs/adr/README.md). Geliştirme kuralları ve faz yol haritası
-için bkz. [AGENTS.md](./AGENTS.md).
+[ARCHITECTURE.md](./docs/agent/ARCHITECTURE.md); tekil teknik kararların
+gerekçeleri için bkz. [docs/adr/](./docs/adr/README.md). Geliştirme kuralları
+ve faz yol haritası için bkz. [AGENTS.md](./docs/agent/AGENTS.md).
 
 ## Proje Yapısı
 
 ```
 ortakpay/
-├── core-service/           # Kullanıcı, grup, masraf, bakiye, settlement
-├── notification-service/   # RabbitMQ event tüketimi, bildirim gönderimi
-├── docker-compose.yml      # Postgres x2 + RabbitMQ
+├── backend/
+│   ├── core-service/           # Kullanıcı, grup, masraf, bakiye, settlement
+│   └── notification-service/   # RabbitMQ event tüketimi, bildirim gönderimi
+├── frontend/                   # Next.js projesi (henüz iskelet)
+├── docker-compose.yml          # Postgres x2 + RabbitMQ + iki servis
 └── .env.example
 ```
 
@@ -65,19 +67,19 @@ tanımlanmış olması) gerekir.
 
 ```bash
 # Core Service (port 8080)
-cd core-service
+cd backend/core-service
 mvn spring-boot:run
 
 # Notification Service (port 8081)
-cd notification-service
+cd backend/notification-service
 mvn spring-boot:run
 ```
 
 ### Build
 
 ```bash
-cd core-service && mvn clean install
-cd notification-service && mvn clean install
+cd backend/core-service && mvn clean install
+cd backend/notification-service && mvn clean install
 ```
 
 > Not: Faz 0 itibarıyla henüz entity/migration/endpoint yok — bu sadece boş
@@ -133,5 +135,5 @@ anlamlı bir hata mesajıyla `exit 1` döner. Script `curl` ve `jq` gerektirir.
 
 ## Faz Durumu
 
-Bkz. [AGENTS.md → Faz Yol Haritası](./AGENTS.md#faz-yol-haritası). Şu an
+Bkz. [AGENTS.md → Faz Yol Haritası](./docs/agent/AGENTS.md#faz-yol-haritası). Şu an
 **Faz 7** (uçtan uca Docker Compose ile çalıştırma) tamamlanmıştır.

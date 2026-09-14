@@ -52,7 +52,7 @@ services:
 
   core-service:
     build:
-      context: ./core-service
+      context: ./backend/core-service
     container_name: ortakpay-core-service
     environment:
       # Container-network overrides only - .env's host-published ports (5434,
@@ -85,7 +85,7 @@ services:
 
   notification-service:
     build:
-      context: ./notification-service
+      context: ./backend/notification-service
     container_name: ortakpay-notification-service
     environment:
       NOTIF_DB_HOST: postgres-notification
