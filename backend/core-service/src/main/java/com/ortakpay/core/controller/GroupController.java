@@ -4,8 +4,10 @@ import com.ortakpay.core.domain.User;
 import com.ortakpay.core.dto.AddMemberRequest;
 import com.ortakpay.core.dto.CreateGroupRequest;
 import com.ortakpay.core.dto.GroupResponse;
+import com.ortakpay.core.dto.GroupSummaryResponse;
 import com.ortakpay.core.service.GroupService;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,11 @@ public class GroupController {
     public GroupResponse createGroup(
             @AuthenticationPrincipal User currentUser, @Valid @RequestBody CreateGroupRequest request) {
         return groupService.createGroup(request.name(), currentUser.getId());
+    }
+
+    @GetMapping
+    public List<GroupSummaryResponse> getMyGroups(@AuthenticationPrincipal User currentUser) {
+        return groupService.getMyGroups(currentUser.getId());
     }
 
     @PostMapping("/{groupId}/members")

@@ -12,6 +12,7 @@ import com.ortakpay.core.AbstractIntegrationTest;
 import com.ortakpay.core.domain.User;
 import com.ortakpay.core.dto.AddMemberRequest;
 import com.ortakpay.core.dto.CreateGroupRequest;
+import com.ortakpay.core.dto.GroupSummaryResponse;
 import com.ortakpay.core.dto.LoginRequest;
 import com.ortakpay.core.dto.RegisterRequest;
 import com.ortakpay.core.repository.GroupMemberRepository;
@@ -73,6 +74,25 @@ class GroupIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(groupMemberRepository.existsByGroup_IdAndUser_Id(groupId, newMember.user().getId()))
                 .isTrue();
+    }
+
+    @Test
+    void getMyGroups_returnsOnlyGroupsUserBelongsTo() throws Exception {
+        AuthedUser member = registerAndLogin();
+        AuthedUser other = registerAndLogin();
+        createGroup(member.token(), "Trip A");
+        createGroup(member.token(), "Trip B");
+        createGroup(other.token(), "Not Mine");
+
+        MvcResult result = mockMvc.perform(get("/api/groups")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + member.token()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        GroupSummaryResponse[] groups =
+                objectMapper.readValue(result.getResponse().getContentAsString(), GroupSummaryResponse[].class);
+        assertThat(groups).extracting(GroupSummaryResponse::name).containsExactlyInAnyOrder("Trip A", "Trip B");
+        assertThat(groups).allSatisfy(group -> assertThat(group.memberCount()).isEqualTo(1));
     }
 
     @Test

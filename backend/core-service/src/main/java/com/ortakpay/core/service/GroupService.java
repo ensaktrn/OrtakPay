@@ -4,6 +4,7 @@ import com.ortakpay.core.domain.Group;
 import com.ortakpay.core.domain.GroupMember;
 import com.ortakpay.core.domain.User;
 import com.ortakpay.core.dto.GroupResponse;
+import com.ortakpay.core.dto.GroupSummaryResponse;
 import com.ortakpay.core.event.GroupMemberAddedInternalEvent;
 import com.ortakpay.core.exception.DuplicateGroupMemberException;
 import com.ortakpay.core.exception.UserNotFoundException;
@@ -65,6 +66,18 @@ public class GroupService {
     public GroupResponse getGroupDetails(UUID groupId, UUID requesterId) {
         Group group = groupAccessGuard.requireMembership(groupId, requesterId);
         return toGroupResponse(group);
+    }
+
+    // No GroupAccessGuard check needed here, unlike getGroupDetails: this
+    // queries by the caller's own userId, so it can never surface a group
+    // the caller isn't already a member of.
+    @Transactional(readOnly = true)
+    public List<GroupSummaryResponse> getMyGroups(UUID userId) {
+        return groupMemberRepository.findByUser_Id(userId).stream()
+                .map(GroupMember::getGroup)
+                .map(group -> new GroupSummaryResponse(
+                        group.getId(), group.getName(), (int) groupMemberRepository.countByGroup_Id(group.getId())))
+                .toList();
     }
 
     private GroupResponse toGroupResponse(Group group) {
