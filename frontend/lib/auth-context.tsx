@@ -1,54 +1,17 @@
 "use client";
 
 import { apiFetch, ApiError, TOKEN_STORAGE_KEY } from "@/lib/api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { AuthResponse, LoginRequest, RegisterRequest, User } from "@/types/auth";
-import { createContext, useContext, useEffect, useReducer, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-interface AuthState {
-  user: User | null;
+type AuthStatus = "idle" | "loading" | "authenticated" | "error";
+
+interface AuthContextValue {
+  user: User | undefined;
   token: string | null;
-  status: "idle" | "loading" | "authenticated" | "error";
-}
-
-type AuthAction =
-  | { type: "LOGIN_START" }
-  | { type: "LOGIN_SUCCESS"; payload: { user: User; token: string } }
-  | { type: "LOGIN_ERROR" }
-  | { type: "LOGOUT" };
-
-// useReducer instead of a few useState calls: user/token/status always change
-// together (a login either sets all three or none of them), and a reducer
-// makes those transitions explicit named cases instead of several setters
-// that could be called out of sync with each other.
-function authReducer(state: AuthState, action: AuthAction): AuthState {
-  switch (action.type) {
-    case "LOGIN_START":
-      return { ...state, status: "loading" };
-    case "LOGIN_SUCCESS":
-      return { user: action.payload.user, token: action.payload.token, status: "authenticated" };
-    case "LOGIN_ERROR":
-      return { user: null, token: null, status: "error" };
-    case "LOGOUT":
-      return { user: null, token: null, status: "idle" };
-    default:
-      return state;
-  }
-}
-
-// Reads a token synchronously (during render, not an effect) so that on a
-// hard refresh of a protected page, the very first render already knows
-// "there might be a session" instead of momentarily reporting "idle" - a
-// route guard reading stale "idle" on that first render would redirect to
-// /login before the effect below ever gets a chance to confirm the token.
-function initAuthState(): AuthState {
-  if (typeof window === "undefined") {
-    return { user: null, token: null, status: "idle" };
-  }
-  const token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
-  return token ? { user: null, token, status: "loading" } : { user: null, token: null, status: "idle" };
-}
-
-interface AuthContextValue extends AuthState {
+  status: AuthStatus;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => void;
@@ -56,66 +19,69 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Reads a token synchronously (during render, not an effect) so that on a
+// hard refresh of a protected page, the very first render already knows
+// "there might be a session" instead of momentarily reporting "idle" - a
+// route guard reading stale "idle" on that first render would redirect to
+// /login before useCurrentUser's query ever gets a chance to confirm the
+// token.
+function initToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(authReducer, undefined, initAuthState);
+  // useState instead of useReducer: token is now the only piece of state
+  // AuthProvider itself owns (user/status are derived below), and a single
+  // primitive value doesn't need a reducer's action/case machinery. Passing
+  // initToken itself (not initToken()) makes this a lazy initializer, run
+  // synchronously during the first render rather than in an effect after -
+  // see initToken's comment for why that timing matters.
+  const [token, setToken] = useState<string | null>(initToken);
 
-  // useEffect burada localStorage senkronizasyonu için gerekli, çünkü
-  // GET /api/users/me bir ağ isteği (yan etki) - render sırasında değil,
-  // component mount olduktan sonra tetiklenmeli. Bağımlılık dizisi boş:
-  // bu sadece uygulama ilk açıldığında (ör. sayfa yenilendiğinde), yukarıdaki
-  // initAuthState'in bulduğu token'ı doğrulamak için bir kere çalışır.
+  const queryClient = useQueryClient();
+
+  // Calling useCurrentUser() (a useQuery hook) here, inside AuthProvider's
+  // own body, only works because QueryClientProvider wraps AuthProvider in
+  // app/layout.tsx (not the other way around) - a hook that reads query
+  // context has to be a descendant of the provider that supplies it. If
+  // AuthProvider were the outer provider instead, this call would throw
+  // "No QueryClient set" before ever reaching a render of QueryClientProvider.
+  const { data: user, isLoading, isError } = useCurrentUser(token);
+
+  // A previously-valid token that /api/users/me now rejects (expired,
+  // revoked) needs to be dropped - otherwise the app would keep sending a
+  // dead token on every request and never let the user log back in cleanly.
   useEffect(() => {
-    if (!state.token) return;
+    if (isError) {
+      window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+      // This isn't derived state (which the rule below is meant to catch):
+      // it's a one-time reaction to an async query settling into an error
+      // state, which can't be computed during render.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setToken(null);
+    }
+  }, [isError]);
 
-    let cancelled = false;
-    apiFetch<User>("/api/users/me")
-      .then((user) => {
-        if (!cancelled) {
-          dispatch({ type: "LOGIN_SUCCESS", payload: { user, token: state.token! } });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-          dispatch({ type: "LOGOUT" });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const status: AuthStatus = !token ? "idle" : isError ? "error" : isLoading || !user ? "loading" : "authenticated";
 
   async function login(email: string, password: string) {
-    dispatch({ type: "LOGIN_START" });
-    try {
-      const body: LoginRequest = { email, password };
-      const { token } = await apiFetch<AuthResponse>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
-      const user = await apiFetch<User>("/api/users/me");
-      dispatch({ type: "LOGIN_SUCCESS", payload: { user, token } });
-    } catch (err) {
-      dispatch({ type: "LOGIN_ERROR" });
-      throw err;
-    }
+    const body: LoginRequest = { email, password };
+    const { token: newToken } = await apiFetch<AuthResponse>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (!newToken) throw new Error("Login response did not include a token");
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
+    setToken(newToken);
   }
 
   async function register(email: string, password: string, displayName: string) {
-    dispatch({ type: "LOGIN_START" });
-    try {
-      const body: RegisterRequest = { email, password, displayName };
-      await apiFetch<User>("/api/auth/register", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-    } catch (err) {
-      dispatch({ type: "LOGIN_ERROR" });
-      throw err;
-    }
+    const body: RegisterRequest = { email, password, displayName };
+    await apiFetch<User>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
     // Registration only creates the account, it doesn't hand back a token -
     // log the new user in right away so register ends in the same
     // authenticated state login does.
@@ -124,10 +90,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function logout() {
     window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-    dispatch({ type: "LOGOUT" });
+    setToken(null);
+    // Otherwise the next login would briefly render the PREVIOUS user's
+    // cached data before the new /me fetch resolves.
+    queryClient.removeQueries({ queryKey: ["currentUser"] });
   }
 
-  return <AuthContext.Provider value={{ ...state, login, register, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, token, status, login, register, logout }}>{children}</AuthContext.Provider>
+  );
 }
 
 // Custom hook instead of exporting AuthContext directly: it centralizes the
@@ -146,5 +117,5 @@ export function useAuth(): AuthContextValue {
 }
 
 export function extractErrorMessage(err: unknown): string {
-  return err instanceof ApiError ? (err.detail ?? err.title) : "Beklenmeyen bir hata oluştu";
+  return err instanceof ApiError ? (err.detail ?? err.title ?? "Beklenmeyen bir hata oluştu") : "Beklenmeyen bir hata oluştu";
 }

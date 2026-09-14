@@ -1,5 +1,6 @@
 import { Header } from "@/components/header";
 import { AuthProvider } from "@/lib/auth-context";
+import { QueryProvider } from "@/lib/query-client";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -26,10 +27,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider>
-          <Header />
-          {children}
-        </AuthProvider>
+        {/* QueryClientProvider wraps AuthProvider (not the reverse): AuthProvider
+            calls useCurrentUser() - a useQuery hook - internally, which requires
+            a QueryClientProvider ancestor. It's also the right long-term shape:
+            public, non-authenticated queries can use TanStack Query without
+            ever needing to sit inside AuthProvider. */}
+        <QueryProvider>
+          <AuthProvider>
+            <Header />
+            {children}
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

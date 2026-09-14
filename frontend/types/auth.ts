@@ -1,25 +1,11 @@
-// Mirrors core-service's auth/user DTOs field-for-field (RegisterRequest,
-// LoginRequest, AuthResponse, UserResponse in backend/core-service/.../dto).
-// Hand-written for now - Faz F3 generates these from the OpenAPI spec instead.
+// Type aliases into the OpenAPI-generated schema (types/api-generated.d.ts,
+// regenerated via `npm run generate:types` - see docs/adr/0012). If a backend
+// DTO field is renamed or removed, these aliases pick up the new shape as
+// soon as types are regenerated, and every mismatched usage in the frontend
+// becomes a compile error instead of a silent runtime bug.
+import type { components } from "@/types/api-generated";
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  displayName: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  expiresAt: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  displayName: string;
-}
+export type RegisterRequest = components["schemas"]["RegisterRequest"];
+export type LoginRequest = components["schemas"]["LoginRequest"];
+export type AuthResponse = components["schemas"]["AuthResponse"];
+export type User = components["schemas"]["UserResponse"];
