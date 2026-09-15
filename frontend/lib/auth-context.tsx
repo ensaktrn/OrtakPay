@@ -1,6 +1,6 @@
 "use client";
 
-import { apiFetch, ApiError, TOKEN_STORAGE_KEY } from "@/lib/api";
+import { apiFetch, TOKEN_STORAGE_KEY } from "@/lib/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { AuthResponse, LoginRequest, RegisterRequest, User } from "@/types/auth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -114,8 +114,4 @@ export function useAuth(): AuthContextValue {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-}
-
-export function extractErrorMessage(err: unknown): string {
-  return err instanceof ApiError ? (err.detail ?? err.title ?? "Beklenmeyen bir hata oluştu") : "Beklenmeyen bir hata oluştu";
 }

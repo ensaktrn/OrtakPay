@@ -4,6 +4,7 @@ import { useGroup } from "@/hooks/useGroup";
 import { useGroupBalances } from "@/hooks/useGroupBalances";
 import { useGroupExpenses } from "@/hooks/useGroupExpenses";
 import { ApiError } from "@/lib/api";
+import Link from "next/link";
 import { use } from "react";
 
 // Next.js 15+ made `params` a Promise, including in Client Component pages
@@ -43,7 +44,15 @@ export default function GroupDetailPage(props: PageProps<"/groups/[groupId]">) {
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
-      <h1 className="mb-8 text-2xl font-semibold">{group?.name}</h1>
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{group?.name}</h1>
+        <Link
+          href={`/groups/${groupId}/expenses/new`}
+          className="rounded bg-foreground px-4 py-2 text-sm text-background"
+        >
+          Yeni Masraf Ekle
+        </Link>
+      </div>
 
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-medium">Masraflar</h2>

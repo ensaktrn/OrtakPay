@@ -4,6 +4,10 @@ import type { components } from "@/types/api-generated";
 
 export type GroupSummary = components["schemas"]["GroupSummaryResponse"];
 export type Group = components["schemas"]["GroupResponse"];
+export type Member = components["schemas"]["MemberResponse"];
 export type Expense = components["schemas"]["ExpenseResponse"];
 export type ExpensePage = components["schemas"]["PagedModelExpenseResponse"];
 export type Balance = components["schemas"]["BalanceResponse"];
+export type CreateExpenseRequest = components["schemas"]["CreateExpenseRequest"];
+export type ParticipantInput = components["schemas"]["ParticipantInput"];
+export type SplitType = components["schemas"]["CreateExpenseRequest"]["splitType"];

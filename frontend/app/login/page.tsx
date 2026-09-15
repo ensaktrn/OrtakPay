@@ -1,6 +1,7 @@
 "use client";
 
-import { extractErrorMessage, useAuth } from "@/lib/auth-context";
+import { extractErrorMessage } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

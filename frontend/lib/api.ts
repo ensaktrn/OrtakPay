@@ -48,3 +48,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   }
   return (await response.json()) as T;
 }
+
+export function extractErrorMessage(err: unknown): string {
+  return err instanceof ApiError ? (err.detail ?? err.title ?? "Beklenmeyen bir hata oluştu") : "Beklenmeyen bir hata oluştu";
+}
