@@ -1,8 +1,8 @@
 # Architecture Decision Records
 
 Short records of the non-obvious technical decisions made on this project —
-why, not just what. See [AGENTS.md](../../AGENTS.md) and
-[ARCHITECTURE.md](../../ARCHITECTURE.md) for the broader project context
+why, not just what. See [AGENTS.md](../agent/AGENTS.md) and
+[ARCHITECTURE.md](../agent/ARCHITECTURE.md) for the broader project context
 these decisions sit inside.
 
 | ADR | Decision |

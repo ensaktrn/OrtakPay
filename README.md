@@ -4,136 +4,174 @@
 
 OrtakPay, arkadaş grupları arasında ortak masrafları (kira, seyahat, yemek vb.)
 adil şekilde paylaştırmayı sağlayan bir masraf paylaşım (expense-splitting)
-platformudur. Splitwise benzeri bir ürünün backend'ini, portfolyo kalitesinde
-ve mülakatta savunulabilir mühendislik kararlarıyla üretmeyi hedefleyen bir
-öğrenme projesidir.
+platformudur — Splitwise benzeri bir ürünün uçtan uca (backend + frontend)
+portfolyo kalitesinde ve mülakatta savunulabilir mühendislik kararlarıyla
+üretilmesini hedefleyen bir öğrenme projesidir.
 
-Mimari kararlar, veri modeli ve akış diyagramları için bkz.
-[ARCHITECTURE.md](./docs/agent/ARCHITECTURE.md); tekil teknik kararların
+## Mimari
+
+İki bağımsız Spring Boot servisi (core-service, notification-service)
+RabbitMQ üzerinden asenkron haberleşir; aralarında senkron REST çağrısı
+yoktur. Next.js frontend'i sadece core-service'in REST API'sini çağırır.
+
+```mermaid
+flowchart LR
+    subgraph Client
+        FE[Web / Mobile Client]
+    end
+
+    subgraph CoreService["Core Service"]
+        API[REST API]
+        SEC["Spring Security (JWT)"]
+        BIZ[Business Logic]
+        API --> SEC --> BIZ
+    end
+
+    subgraph NotifService["Notification Service"]
+        LISTENER[Event Listener]
+        SENDER[Notification Sender]
+        LISTENER --> SENDER
+    end
+
+    CoreDB[(PostgreSQL<br/>core_db)]
+    NotifDB[(PostgreSQL<br/>notif_db)]
+    MQ[[RabbitMQ]]
+    EXT[/Email / Push Provider/]
+
+    FE -->|HTTPS / REST + JWT| API
+    BIZ -->|JPA| CoreDB
+    BIZ -->|publish event| MQ
+    MQ -->|consume event| LISTENER
+    LISTENER --> NotifDB
+    SENDER --> EXT
+```
+
+Veri modeli, akış diyagramları ve mülakat notları için bkz.
+[ARCHITECTURE.md](./docs/agent/ARCHITECTURE.md). Tekil teknik kararların
 gerekçeleri için bkz. [docs/adr/](./docs/adr/README.md). Geliştirme kuralları
 ve faz yol haritası için bkz. [AGENTS.md](./docs/agent/AGENTS.md).
+
+## Teknoloji
+
+| Katman | Teknoloji |
+|---|---|
+| Backend | Java 21, Spring Boot 4.1.1, Spring Data JPA + Hibernate, Spring Security (JWT), PostgreSQL, Flyway, Spring AMQP (RabbitMQ), springdoc-openapi, Maven |
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, TanStack Query, React Hook Form + Zod, Tailwind CSS |
+| Test | JUnit 5, Mockito, Testcontainers, AssertJ (backend) · Playwright (frontend e2e) |
+| Infra | Docker, Docker Compose, GitHub Actions |
 
 ## Proje Yapısı
 
 ```
 ortakpay/
 ├── backend/
-│   ├── core-service/           # Kullanıcı, grup, masraf, bakiye, settlement
-│   └── notification-service/   # RabbitMQ event tüketimi, bildirim gönderimi
-├── frontend/                   # Next.js projesi (henüz iskelet)
-├── docker-compose.yml          # Postgres x2 + RabbitMQ + iki servis
-└── .env.example
+│   ├── core-service/           # Kullanıcı, grup, masraf, bakiye, settlement, JWT auth
+│   └── notification-service/   # RabbitMQ event tüketimi, bildirim gönderimi (mock)
+├── frontend/                   # Next.js web arayüzü
+├── docs/                       # AGENTS.md, ARCHITECTURE.md, ADR'lar
+├── docker-compose.yml          # Postgres x2 + RabbitMQ + backend'in iki servisi
+└── e2e-smoke-test.sh           # curl tabanlı hızlı doğrulama script'i
 ```
-
-İki servis de bağımsız Spring Boot uygulamalarıdır (ayrı `pom.xml`, ayrı
-veritabanı, ayrı deploy). Aralarında senkron REST çağrısı yoktur; haberleşme
-RabbitMQ üzerinden asenkron event'lerle yapılır.
-
-## Teknoloji
-
-Java 21, Spring Boot 4.1.1, Spring Data JPA, Spring Security, PostgreSQL,
-Flyway, Spring AMQP (RabbitMQ), MapStruct, springdoc-openapi, Maven.
 
 ## Nasıl Çalıştırılır
 
-### 1. Ortam değişkenlerini ayarla
+### Backend + altyapı (Docker Compose)
 
 ```bash
-cp .env.example .env
-# .env içindeki şifreleri gerektiği gibi değiştir
-```
-
-### 2. Altyapıyı ayağa kaldır (Postgres x2 + RabbitMQ)
-
-```bash
-docker-compose up -d
-```
-
-Bu komut şunları başlatır:
-- `postgres-core` → `core_db` (varsayılan port `5434`; `5432` yerine bilinçli
-  olarak farklı bir port kullanılıyor çünkü çoğu geliştirme makinesinde yerel
-  bir Postgres kurulumu zaten `5432`'yi dinliyor olabilir — Docker'ın port
-  binding'i bununla çakışırsa istekler yanlışlıkla yerel Postgres'e gider)
-- `postgres-notification` → `notif_db` (varsayılan port `5433`)
-- `rabbitmq` → AMQP `5672`, management UI `15672`
-  (`http://localhost:15672`, kullanıcı adı/şifre `.env`'den)
-
-### 3. Servisleri çalıştır
-
-Her servis kendi bağımsız Maven projesidir. `application.yml` veritabanı
-bağlantısını ortam değişkenlerinden okur, bu yüzden `.env` içindeki
-değerlerin shell'e export edilmiş olması (ya da IDE run config'inde
-tanımlanmış olması) gerekir.
-
-```bash
-# Core Service (port 8080)
-cd backend/core-service
-mvn spring-boot:run
-
-# Notification Service (port 8081)
-cd backend/notification-service
-mvn spring-boot:run
-```
-
-### Build
-
-```bash
-cd backend/core-service && mvn clean install
-cd backend/notification-service && mvn clean install
-```
-
-> Not: Faz 0 itibarıyla henüz entity/migration/endpoint yok — bu sadece boş
-> iskeletin derlendiğini ve Spring context'inin (DB/MQ bağlantısı dahil)
-> sorunsuz ayağa kalktığını doğrular. Bu yüzden build/test öncesi
-> `docker-compose up` ile altyapının ayakta olması gerekir.
-
-## Docker Compose ile Çalıştırma
-
-Faz 7 itibarıyla `core-service` ve `notification-service`'in kendileri de
-docker-compose'a dahil — tüm stack (2x Postgres + RabbitMQ + 2 servis) tek
-komutla, kaynak koddan build edilerek ayağa kalkar. Maven/JDK kurulu olması
-gerekmez, sadece Docker.
-
-```bash
-cp .env.example .env   # ilk kurulumda
+cp .env.example .env   # ilk kurulumda; içindeki şifreleri gerektiği gibi değiştir
 docker-compose up --build -d
 ```
 
-`docker-compose ps` ile 5 container'ın da `healthy` olduğunu doğrulayabilirsin
-(uygulama servisleri `/actuator/health` endpoint'i üzerinden probe edilir,
-bu yüzden ayağa kalkmaları biraz zaman alır — `depends_on: condition:
-service_healthy` sayesinde core-service ve notification-service, altyapı
-gerçekten hazır olmadan başlamaz).
+Bu komut core-service, notification-service ve bağımlılıkları olan iki
+Postgres + RabbitMQ'yu tek seferde build edip ayağa kaldırır — yerelde
+Maven/JDK kurulu olması gerekmez, sadece Docker. `docker-compose ps` ile 5
+container'ın da `healthy` olduğunu doğrulayabilirsin (uygulama servisleri
+`/actuator/health` üzerinden probe edilir).
 
 Açık portlar:
-- `8080` → core-service REST API (host'a açık)
+- `8080` → core-service REST API + Swagger UI
 - `15672` → RabbitMQ management UI (`http://localhost:15672`)
 - `5434` / `5433` → Postgres (core / notification), sadece debug amaçlı
 - `notification-service` **host'a port açmaz** — sadece RabbitMQ üzerinden
-  event tüketir, dışarıdan hiçbir client'ın doğrudan çağırmasına gerek yoktur
+  event tüketir
 
-Swagger UI: `http://localhost:8080/swagger-ui.html`
+**Swagger UI:** http://localhost:8080/swagger-ui.html
 
-Durdurmak için:
+Durdurmak için: `docker-compose down` (veri kalır) veya
+`docker-compose down -v` (volume'lar da silinir, temiz sıfırdan başlangıç).
 
-```bash
-docker-compose down        # container'ları durdur, veri kalır
-docker-compose down -v     # + volume'ları da sil (temiz sıfırdan başlangıç)
-```
-
-### Uçtan uca smoke test
-
-Stack ayaktayken, register → login → grup oluştur → masraf oluştur akışını
-uçtan uca doğrulayan script:
+Uçtan uca hızlı bir doğrulama için (`curl` + `jq` gerektirir):
 
 ```bash
 ./e2e-smoke-test.sh
 ```
 
-Her adımda beklenen HTTP status kontrol edilir; ilk başarısız adımda script
-anlamlı bir hata mesajıyla `exit 1` döner. Script `curl` ve `jq` gerektirir.
+### Frontend
 
-## Faz Durumu
+Frontend, docker-compose'a dahil değil — backend ayaktayken ayrıca
+çalıştırılır:
 
-Bkz. [AGENTS.md → Faz Yol Haritası](./docs/agent/AGENTS.md#faz-yol-haritası). Şu an
-**Faz 7** (uçtan uca Docker Compose ile çalıştırma) tamamlanmıştır.
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local
+npm run dev
+```
+
+**Frontend:** http://localhost:3000
+
+## Öne Çıkan Mimari Kararlar
+
+- **Optimistic locking, pessimistic değil** — `Balance` tablosu
+  materialized tutulur ve `@Version` ile eşzamanlı güncellemelere karşı
+  korunur; çakışma olasılığı düşük olduğundan pessimistic lock'un
+  throughput maliyeti gereksiz görüldü.
+  ([ADR 0004](./docs/adr/0004-materialized-balance-with-optimistic-locking.md))
+- **Event-driven bildirim, senkron çağrı değil** — core-service ile
+  notification-service arasında hiç REST çağrısı yok; RabbitMQ üzerinden
+  asenkron event'lerle haberleşiyorlar, gerçek DB commit'inden sonra
+  (`@TransactionalEventListener(AFTER_COMMIT)`) publish edilerek "rollback
+  olan işlem için bildirim gitmesin" garantisi sağlanıyor.
+  ([ADR 0002](./docs/adr/0002-rabbitmq-over-kafka.md),
+  [ADR 0010](./docs/adr/0010-transactional-outbox-lite.md))
+- **Resource-based yetkilendirme, rol bazlı değil** — "bu kullanıcı bu
+  gruba üye mi?" kontrolü servis katmanında `GroupAccessGuard` ile
+  explicit yapılır; `@PreAuthorize` + bir `PermissionEvaluator`'a göre daha
+  az "büyülü" ve test edilmesi daha kolay.
+  ([ADR 0009](./docs/adr/0009-explicit-service-layer-authorization.md))
+- **OpenAPI'den elle üretilen frontend tipleri** — backend'in
+  `/v3/api-docs`'undan `openapi-typescript` ile üretilen tipler,
+  build/CI adımı değil, manuel bir script; core-service CI'da erişilebilir
+  olmadığından bu bilinçli bir tradeoff.
+  ([ADR 0012](./docs/adr/0012-manual-openapi-type-regeneration.md))
+
+## Test Durumu
+
+- **Backend:** core-service'te 63, notification-service'te 6 test (unit +
+  Testcontainers integration) — her ikisi de her push'ta **GitHub Actions
+  CI'da otomatik çalışır** (bkz. `.github/workflows/ci.yml`).
+- **Frontend:** Playwright ile yazılmış e2e testleri (`frontend/e2e/`) —
+  gerçek bir backend'e ihtiyaç duydukları için CI'da **çalışmıyorlar**,
+  yereldeki geliştirme akışının bir parçası (bkz.
+  [frontend/e2e/README.md](./frontend/e2e/README.md)). Bu, "ikisi de CI'da
+  koşuyor" varsayımına karşı bilinçli bir düzeltme: CI şu an sadece
+  backend'i doğruluyor.
+
+## Bilinçli Olarak Yapılmayanlar
+
+Bu bir portfolyo/öğrenme projesi olduğu için bazı production-grade
+davranışlar bilinçli olarak ertelendi — her biri neden ve ne zaman
+eklenmesi gerektiğiyle birlikte bir ADR'da belgelendi:
+
+- **Refresh token yok, tam transactional outbox yok** — şu an
+  `@TransactionalEventListener(AFTER_COMMIT)` ile "hafif" bir outbox
+  kullanılıyor; commit sonrası publish çağrısı gerçekten başarısız olursa
+  (nadiren) mesaj kaybolabilir. Gerçek bir outbox tablosu + poller/CDC
+  gerekirse eklenecek. ([ADR 0010](./docs/adr/0010-transactional-outbox-lite.md))
+- **`Balance.getOrCreate`'in ilk-insert race'i ele alınmadı** — bu ölçekte
+  olasılığı düşük; ölçek büyürse iki bilinen çözümden biri uygulanabilir.
+  ([ADR 0008](./docs/adr/0008-balance-get-or-create-race-condition.md))
+- **`@Scheduled` job'ları dağıtık kilit içermiyor** — core-service tek
+  instance çalıştığı sürece sorun değil; yatay ölçeklenirse ShedLock gibi
+  bir DB-tabanlı kilit eklenmeli.
+  ([ADR 0013](./docs/adr/0013-scheduled-job-single-instance-limitation.md))

@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/skeleton";
 import { useCreateExpense } from "@/hooks/useCreateExpense";
 import { useGroup } from "@/hooks/useGroup";
 import { extractErrorMessage } from "@/lib/api";
@@ -92,8 +93,11 @@ export default function NewExpensePage(props: PageProps<"/groups/[groupId]/expen
 
   if (groupQuery.isLoading) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <p>Yükleniyor...</p>
+      <div className="mx-auto w-full max-w-lg flex-1 px-6 py-10">
+        <Skeleton className="mb-6 h-8 w-1/2" />
+        <Skeleton className="mb-4 h-10 w-full" />
+        <Skeleton className="mb-4 h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
       </div>
     );
   }

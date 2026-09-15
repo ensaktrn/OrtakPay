@@ -1,5 +1,7 @@
 "use client";
 
+import { NotFoundMessage } from "@/components/not-found-message";
+import { Skeleton } from "@/components/skeleton";
 import { useGroup } from "@/hooks/useGroup";
 import { useGroupBalances } from "@/hooks/useGroupBalances";
 import { useGroupExpenses } from "@/hooks/useGroupExpenses";
@@ -23,32 +25,44 @@ export default function GroupDetailPage(props: PageProps<"/groups/[groupId]">) {
 
   if (groupQuery.isLoading) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <p>Yükleniyor...</p>
+      <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
+        <Skeleton className="mb-8 h-8 w-1/2" />
+        <Skeleton className="mb-3 h-6 w-24" />
+        <Skeleton className="mb-2 h-16 w-full" />
+        <Skeleton className="mb-8 h-16 w-full" />
+        <Skeleton className="mb-3 h-6 w-24" />
+        <Skeleton className="h-16 w-full" />
       </div>
     );
   }
 
   if (groupQuery.isError) {
     const notAMember = groupQuery.error instanceof ApiError && groupQuery.error.status === 403;
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <p className="text-red-600">
-          {notAMember ? "Bu gruba erişim yetkin yok." : "Grup yüklenirken bir hata oluştu."}
-        </p>
-      </div>
-    );
+    if (notAMember) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center">
+          <p className="text-red-600">Bu gruba erişim yetkin yok.</p>
+        </div>
+      );
+    }
+    // Everything else (a real 404, or - a backend quirk - a malformed
+    // groupId coming back as 401 instead of 400, since @PathVariable UUID
+    // conversion failures aren't routed through GlobalExceptionHandler) is
+    // treated as "this group doesn't exist" rather than a generic error,
+    // since from the user's perspective both look the same: there's nothing
+    // here to show.
+    return <NotFoundMessage title="Grup bulunamadı" description="Aradığın grup mevcut değil ya da kaldırılmış." />;
   }
 
   const group = groupQuery.data;
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{group?.name}</h1>
         <Link
           href={`/groups/${groupId}/expenses/new`}
-          className="rounded bg-foreground px-4 py-2 text-sm text-background"
+          className="shrink-0 self-start rounded bg-foreground px-4 py-2 text-sm whitespace-nowrap text-background sm:self-auto"
         >
           Yeni Masraf Ekle
         </Link>
@@ -56,7 +70,12 @@ export default function GroupDetailPage(props: PageProps<"/groups/[groupId]">) {
 
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-medium">Masraflar</h2>
-        {expensesQuery.isLoading && <p>Yükleniyor...</p>}
+        {expensesQuery.isLoading && (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        )}
         {expensesQuery.isError && <p className="text-red-600">Masraflar yüklenirken bir hata oluştu.</p>}
         {expensesQuery.data?.content?.length === 0 && (
           <p className="text-zinc-600 dark:text-zinc-400">Henüz masraf yok.</p>
@@ -83,7 +102,12 @@ export default function GroupDetailPage(props: PageProps<"/groups/[groupId]">) {
             Ödeme Kaydet
           </Link>
         </div>
-        {balancesQuery.isLoading && <p>Yükleniyor...</p>}
+        {balancesQuery.isLoading && (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        )}
         {balancesQuery.isError && <p className="text-red-600">Bakiyeler yüklenirken bir hata oluştu.</p>}
         {balancesQuery.data?.length === 0 && <p className="text-zinc-600 dark:text-zinc-400">Henüz bakiye yok.</p>}
         <ul className="flex flex-col gap-2">
