@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "generate:types": "openapi-typescript http://localhost:8080/v3/api-docs -o types/api-generated.d.ts"
+    "generate:types": "openapi-typescript http://localhost:8080/v3/api-docs -o types/api-generated.d.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -19,6 +20,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.102.8",
     "@types/node": "^20",
