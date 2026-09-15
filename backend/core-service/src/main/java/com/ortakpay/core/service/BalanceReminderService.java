@@ -4,6 +4,7 @@ import com.ortakpay.core.domain.Balance;
 import com.ortakpay.core.event.BalanceReminderInternalEvent;
 import com.ortakpay.core.repository.BalanceRepository;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -19,6 +20,7 @@ public class BalanceReminderService {
     private final BalanceRepository balanceRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final BalanceReminderProperties properties;
+    private final Clock clock;
 
     /**
      * The reminder-timing filter (never reminded, or reminded long enough ago)
@@ -32,10 +34,16 @@ public class BalanceReminderService {
      * reminder job is exactly the kind of place where trusting a query name
      * alone, instead of also checking the invariant it implies, isn't worth
      * the risk.
+     *
+     * <p>The threshold comparison uses {@code isBefore} (strict {@code <}),
+     * which in practice means "at least N days have passed" - on exactly day
+     * N the reminder does not yet fire, it fires on day N+1. This is
+     * acceptable behavior (being a day late is preferred over reminding
+     * someone too aggressively).
      */
     @Transactional(readOnly = true)
     public List<Balance> findDueReminders() {
-        Instant threshold = Instant.now().minus(properties.reminderIntervalDays(), ChronoUnit.DAYS);
+        Instant threshold = Instant.now(clock).minus(properties.reminderIntervalDays(), ChronoUnit.DAYS);
         return balanceRepository.findByNetAmountLessThan(BigDecimal.ZERO).stream()
                 .filter(balance -> balance.getNetAmount().compareTo(BigDecimal.ZERO) < 0)
                 .filter(balance ->
@@ -46,7 +54,7 @@ public class BalanceReminderService {
     @Transactional
     public void sendDueReminders() {
         for (Balance balance : findDueReminders()) {
-            balance.markReminderSent(Instant.now());
+            balance.markReminderSent(Instant.now(clock));
             balanceRepository.save(balance);
 
             applicationEventPublisher.publishEvent(new BalanceReminderInternalEvent(

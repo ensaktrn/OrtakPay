@@ -12,7 +12,9 @@ import com.ortakpay.core.domain.User;
 import com.ortakpay.core.event.BalanceReminderInternalEvent;
 import com.ortakpay.core.repository.BalanceRepository;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +31,14 @@ class BalanceReminderServiceTest {
 
     private static final int REMINDER_INTERVAL_DAYS = 3;
 
+    // A fixed Clock (not the real Instant.now()) makes every boundary in this
+    // test class an exact, deterministic comparison instead of "probably far
+    // enough apart in real time" - most valuable for the exact-boundary test
+    // below, which needs its fixture's timestamp to be bit-for-bit identical
+    // to the threshold the service computes.
+    private static final Instant FIXED_NOW = Instant.parse("2026-01-10T09:00:00Z");
+    private static final Clock FIXED_CLOCK = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
+
     @Mock
     private BalanceRepository balanceRepository;
 
@@ -39,8 +49,8 @@ class BalanceReminderServiceTest {
 
     @BeforeEach
     void setUp() {
-        balanceReminderService =
-                new BalanceReminderService(balanceRepository, applicationEventPublisher, new BalanceReminderProperties(REMINDER_INTERVAL_DAYS));
+        balanceReminderService = new BalanceReminderService(
+                balanceRepository, applicationEventPublisher, new BalanceReminderProperties(REMINDER_INTERVAL_DAYS), FIXED_CLOCK);
     }
 
     @Test
@@ -54,7 +64,7 @@ class BalanceReminderServiceTest {
     @Test
     void findDueReminders_excludesBalanceRemindedOneDayLessThanTheInterval() {
         Balance recentlyReminded =
-                balanceWithLastReminder(Instant.now().minus(REMINDER_INTERVAL_DAYS - 1, ChronoUnit.DAYS));
+                balanceWithLastReminder(FIXED_NOW.minus(REMINDER_INTERVAL_DAYS - 1, ChronoUnit.DAYS));
         when(balanceRepository.findByNetAmountLessThan(BigDecimal.ZERO)).thenReturn(List.of(recentlyReminded));
 
         assertThat(balanceReminderService.findDueReminders()).isEmpty();
@@ -63,7 +73,7 @@ class BalanceReminderServiceTest {
     @Test
     void findDueReminders_includesBalanceRemindedMoreThanTheIntervalAgo() {
         Balance longAgoReminded =
-                balanceWithLastReminder(Instant.now().minus(REMINDER_INTERVAL_DAYS + 1, ChronoUnit.DAYS));
+                balanceWithLastReminder(FIXED_NOW.minus(REMINDER_INTERVAL_DAYS + 1, ChronoUnit.DAYS));
         when(balanceRepository.findByNetAmountLessThan(BigDecimal.ZERO)).thenReturn(List.of(longAgoReminded));
 
         assertThat(balanceReminderService.findDueReminders()).containsExactly(longAgoReminded);
@@ -71,14 +81,25 @@ class BalanceReminderServiceTest {
 
     @Test
     void findDueReminders_excludesBalanceRemindedJustInsideTheInterval() {
-        // "Exactly N days ago" is racy to hit precisely in a live test (time
-        // moves between building the fixture and the service computing its own
-        // threshold), so this asserts the exclusive boundary with a timestamp a
-        // few seconds younger than the N-day mark - still inside the interval,
-        // must NOT be selected.
         Balance justInsideInterval =
-                balanceWithLastReminder(Instant.now().minus(REMINDER_INTERVAL_DAYS, ChronoUnit.DAYS).plusSeconds(30));
+                balanceWithLastReminder(FIXED_NOW.minus(REMINDER_INTERVAL_DAYS, ChronoUnit.DAYS).plusSeconds(30));
         when(balanceRepository.findByNetAmountLessThan(BigDecimal.ZERO)).thenReturn(List.of(justInsideInterval));
+
+        assertThat(balanceReminderService.findDueReminders()).isEmpty();
+    }
+
+    @Test
+    void findDueReminders_excludesBalanceRemindedExactlyAtTheIntervalBoundary() {
+        // lastReminderSentAt set to bit-for-bit the same instant
+        // findDueReminders() computes as its own threshold (both derive from
+        // FIXED_CLOCK), so this is a true equality check, not an
+        // approximation. isBefore() is strict: an exact match must NOT be
+        // selected - "exactly N days ago" is not yet "more than N days ago".
+        // If this behavior ever regresses (e.g. isBefore swapped for
+        // !isAfter), this test goes red.
+        Instant exactlyAtThreshold = FIXED_NOW.minus(REMINDER_INTERVAL_DAYS, ChronoUnit.DAYS);
+        Balance remindedExactlyAtBoundary = balanceWithLastReminder(exactlyAtThreshold);
+        when(balanceRepository.findByNetAmountLessThan(BigDecimal.ZERO)).thenReturn(List.of(remindedExactlyAtBoundary));
 
         assertThat(balanceReminderService.findDueReminders()).isEmpty();
     }
@@ -116,7 +137,7 @@ class BalanceReminderServiceTest {
 
         balanceReminderService.sendDueReminders();
 
-        assertThat(due.getLastReminderSentAt()).isNotNull();
+        assertThat(due.getLastReminderSentAt()).isEqualTo(FIXED_NOW);
         verify(balanceRepository).save(due);
 
         ArgumentCaptor<BalanceReminderInternalEvent> eventCaptor =
