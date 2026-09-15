@@ -11,3 +11,5 @@ export type Balance = components["schemas"]["BalanceResponse"];
 export type CreateExpenseRequest = components["schemas"]["CreateExpenseRequest"];
 export type ParticipantInput = components["schemas"]["ParticipantInput"];
 export type SplitType = components["schemas"]["CreateExpenseRequest"]["splitType"];
+export type CreateSettlementRequest = components["schemas"]["SettlementRequest"];
+export type Settlement = components["schemas"]["SettlementResponse"];
