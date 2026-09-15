@@ -35,10 +35,12 @@ public class RabbitConfig {
     public static final String EXPENSE_CREATED_QUEUE = "notification.expense-created";
     public static final String GROUP_MEMBER_ADDED_QUEUE = "notification.group-member-added";
     public static final String SETTLEMENT_RECORDED_QUEUE = "notification.settlement-recorded";
+    public static final String SETTLEMENT_REMINDER_QUEUE = "notification.settlement-reminder";
 
     private static final String EXPENSE_CREATED_ROUTING_KEY = "expense.created";
     private static final String GROUP_MEMBER_ADDED_ROUTING_KEY = "group.member.added";
     private static final String SETTLEMENT_RECORDED_ROUTING_KEY = "settlement.recorded";
+    private static final String SETTLEMENT_REMINDER_ROUTING_KEY = "settlement.reminder";
 
     @Bean
     public TopicExchange eventsExchange() {
@@ -63,6 +65,11 @@ public class RabbitConfig {
     @Bean
     public Declarables settlementRecordedDeclarables() {
         return queueWithDeadLetter(SETTLEMENT_RECORDED_QUEUE, SETTLEMENT_RECORDED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Declarables settlementReminderDeclarables() {
+        return queueWithDeadLetter(SETTLEMENT_REMINDER_QUEUE, SETTLEMENT_REMINDER_ROUTING_KEY);
     }
 
     private Declarables queueWithDeadLetter(String queueName, String routingKey) {

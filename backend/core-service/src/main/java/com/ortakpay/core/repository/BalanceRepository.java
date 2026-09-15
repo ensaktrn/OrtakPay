@@ -3,6 +3,7 @@ package com.ortakpay.core.repository;
 import com.ortakpay.core.domain.Balance;
 import com.ortakpay.core.domain.Group;
 import com.ortakpay.core.domain.User;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,4 +14,6 @@ public interface BalanceRepository extends JpaRepository<Balance, UUID> {
     Optional<Balance> findByGroupAndUser(Group group, User user);
 
     List<Balance> findByGroup_Id(UUID groupId);
+
+    List<Balance> findByNetAmountLessThan(BigDecimal amount);
 }

@@ -11,6 +11,7 @@ import com.ortakpay.notification.domain.NotificationStatus;
 import com.ortakpay.notification.dto.ExpenseCreatedMessage;
 import com.ortakpay.notification.dto.GroupMemberAddedMessage;
 import com.ortakpay.notification.dto.SettlementRecordedMessage;
+import com.ortakpay.notification.dto.SettlementReminderMessage;
 import com.ortakpay.notification.repository.NotificationLogRepository;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -106,6 +107,26 @@ class NotificationListenerIntegrationTest extends AbstractIntegrationTest {
             NotificationLog log = logs.get(0);
             assertThat(log.getEventType()).isEqualTo(NotificationEventType.SETTLEMENT_RECORDED);
             assertThat(log.getRecipientUserId()).isEqualTo(toUserId);
+            assertThat(log.getStatus()).isEqualTo(NotificationStatus.SENT);
+        });
+    }
+
+    @Test
+    void settlementReminderMessage_isConsumedAndPersisted() {
+        String email = "reminder-" + UUID.randomUUID() + "@example.com";
+        UUID userId = UUID.randomUUID();
+
+        SettlementReminderMessage message = new SettlementReminderMessage(
+                UUID.randomUUID(), "Trip", userId, email, "Reminder Target", new BigDecimal("15.00"));
+
+        rabbitTemplate.convertAndSend(RabbitConfig.EVENTS_EXCHANGE, "settlement.reminder", message);
+
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+            List<NotificationLog> logs = notificationLogRepository.findByRecipientEmail(email);
+            assertThat(logs).hasSize(1);
+            NotificationLog log = logs.get(0);
+            assertThat(log.getEventType()).isEqualTo(NotificationEventType.SETTLEMENT_REMINDER);
+            assertThat(log.getRecipientUserId()).isEqualTo(userId);
             assertThat(log.getStatus()).isEqualTo(NotificationStatus.SENT);
         });
     }

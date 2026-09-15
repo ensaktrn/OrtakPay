@@ -54,3 +54,7 @@ app:
     expiration-minutes: 60
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:3000}
+  jobs:
+    balance-reminder:
+      reminder-interval-days: 3
+      cron: "0 0 9 * * *"

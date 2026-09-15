@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -57,7 +58,14 @@ public class Balance {
     @Column(nullable = false)
     private Long version;
 
+    @Column(name = "last_reminder_sent_at")
+    private Instant lastReminderSentAt;
+
     public void applyDelta(BigDecimal delta) {
         this.netAmount = this.netAmount.add(delta);
+    }
+
+    public void markReminderSent(Instant when) {
+        this.lastReminderSentAt = when;
     }
 }

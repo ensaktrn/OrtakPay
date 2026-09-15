@@ -96,4 +96,22 @@ class EventPublisherListenerTest {
         assertThat(message.toEmail()).isEqualTo("to@example.com");
         assertThat(message.amount()).isEqualByComparingTo("20.00");
     }
+
+    @Test
+    void onBalanceReminder_publishesToEventsExchangeWithSettlementReminderRoutingKey() {
+        BalanceReminderInternalEvent event = new BalanceReminderInternalEvent(
+                UUID.randomUUID(), "Trip", UUID.randomUUID(), "owes@example.com", "Ower", new BigDecimal("-15.00"));
+
+        listener.onBalanceReminder(event);
+
+        ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(rabbitTemplate)
+                .convertAndSend(eq(RabbitConfig.EVENTS_EXCHANGE), eq("settlement.reminder"), payloadCaptor.capture());
+
+        assertThat(payloadCaptor.getValue()).isInstanceOf(BalanceReminderMessage.class);
+        BalanceReminderMessage message = (BalanceReminderMessage) payloadCaptor.getValue();
+        assertThat(message.userId()).isEqualTo(event.userId());
+        assertThat(message.email()).isEqualTo("owes@example.com");
+        assertThat(message.owedAmount()).isEqualByComparingTo("-15.00");
+    }
 }

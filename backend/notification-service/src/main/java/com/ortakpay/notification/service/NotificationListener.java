@@ -7,6 +7,7 @@ import com.ortakpay.notification.domain.NotificationStatus;
 import com.ortakpay.notification.dto.ExpenseCreatedMessage;
 import com.ortakpay.notification.dto.GroupMemberAddedMessage;
 import com.ortakpay.notification.dto.SettlementRecordedMessage;
+import com.ortakpay.notification.dto.SettlementReminderMessage;
 import com.ortakpay.notification.repository.NotificationLogRepository;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
@@ -79,6 +80,23 @@ public class NotificationListener {
                 .eventType(NotificationEventType.SETTLEMENT_RECORDED)
                 .recipientUserId(message.toUserId())
                 .recipientEmail(message.toEmail())
+                .payload(jsonMapper.writeValueAsString(message))
+                .status(NotificationStatus.SENT)
+                .createdAt(Instant.now())
+                .build());
+    }
+
+    @RabbitListener(queues = RabbitConfig.SETTLEMENT_REMINDER_QUEUE)
+    public void onSettlementReminder(SettlementReminderMessage message) {
+        log.info(
+                "Sending notification to {}: You still owe {} in group '{}'",
+                message.email(),
+                message.owedAmount(),
+                message.groupName());
+        notificationLogRepository.save(NotificationLog.builder()
+                .eventType(NotificationEventType.SETTLEMENT_REMINDER)
+                .recipientUserId(message.userId())
+                .recipientEmail(message.email())
                 .payload(jsonMapper.writeValueAsString(message))
                 .status(NotificationStatus.SENT)
                 .createdAt(Instant.now())

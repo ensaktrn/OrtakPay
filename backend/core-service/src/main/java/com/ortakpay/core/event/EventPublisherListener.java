@@ -19,6 +19,7 @@ public class EventPublisherListener {
     public static final String EXPENSE_CREATED_ROUTING_KEY = "expense.created";
     public static final String GROUP_MEMBER_ADDED_ROUTING_KEY = "group.member.added";
     public static final String SETTLEMENT_RECORDED_ROUTING_KEY = "settlement.recorded";
+    public static final String BALANCE_REMINDER_ROUTING_KEY = "settlement.reminder";
 
     private final RabbitTemplate rabbitTemplate;
 
@@ -60,5 +61,12 @@ public class EventPublisherListener {
                 event.toDisplayName(),
                 event.amount());
         rabbitTemplate.convertAndSend(RabbitConfig.EVENTS_EXCHANGE, SETTLEMENT_RECORDED_ROUTING_KEY, message);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onBalanceReminder(BalanceReminderInternalEvent event) {
+        BalanceReminderMessage message = new BalanceReminderMessage(
+                event.groupId(), event.groupName(), event.userId(), event.email(), event.displayName(), event.owedAmount());
+        rabbitTemplate.convertAndSend(RabbitConfig.EVENTS_EXCHANGE, BALANCE_REMINDER_ROUTING_KEY, message);
     }
 }
