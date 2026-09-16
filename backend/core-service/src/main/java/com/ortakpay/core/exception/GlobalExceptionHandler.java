@@ -6,9 +6,24 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // Without this, a malformed path variable (e.g. a non-UUID string where
+    // a UUID is expected) throws before this advice's other handlers ever
+    // see it, and Spring Security's exception translation turns the
+    // unhandled exception into a misleading 401 instead of a 400 - the
+    // request never actually had an auth problem.
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Invalid value for parameter '" + ex.getName() + "': " + ex.getValue());
+        problem.setTitle("Invalid Request Parameter");
+        return problem;
+    }
 
     @ExceptionHandler(DuplicateEmailException.class)
     public ProblemDetail handleDuplicateEmail(DuplicateEmailException ex) {

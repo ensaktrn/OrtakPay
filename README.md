@@ -163,14 +163,16 @@ Bu bir portfolyo/öğrenme projesi olduğu için bazı production-grade
 davranışlar bilinçli olarak ertelendi — her biri neden ve ne zaman
 eklenmesi gerektiğiyle birlikte bir ADR'da belgelendi:
 
-- **Refresh token yok, tam transactional outbox yok** — şu an
-  `@TransactionalEventListener(AFTER_COMMIT)` ile "hafif" bir outbox
-  kullanılıyor; commit sonrası publish çağrısı gerçekten başarısız olursa
-  (nadiren) mesaj kaybolabilir. Gerçek bir outbox tablosu + poller/CDC
-  gerekirse eklenecek. ([ADR 0010](./docs/adr/0010-transactional-outbox-lite.md))
 - **`Balance.getOrCreate`'in ilk-insert race'i ele alınmadı** — bu ölçekte
   olasılığı düşük; ölçek büyürse iki bilinen çözümden biri uygulanabilir.
   ([ADR 0008](./docs/adr/0008-balance-get-or-create-race-condition.md))
+- **Notification consumer'ları idempotent değil** — RabbitMQ at-least-once
+  teslimat garantisi verir, `NotificationListener` aynı mesajın tekrar
+  teslim edildiğini ayırt etmiyor; nadiren (ack öncesi çökme senaryosunda)
+  `NotificationLog`'a duplicate bir satır düşebilir. Şu an sadece mock bir
+  log satırı etkileniyor, gerçek bir email/push provider eklenince mesaj ID'si
+  üzerinde UNIQUE constraint + "already processed" kontrolü gerekecek.
+  ([ADR 0011](./docs/adr/0011-notification-consumer-not-idempotent.md))
 - **`@Scheduled` job'ları dağıtık kilit içermiyor** — core-service tek
   instance çalıştığı sürece sorun değil; yatay ölçeklenirse ShedLock gibi
   bir DB-tabanlı kilit eklenmeli.

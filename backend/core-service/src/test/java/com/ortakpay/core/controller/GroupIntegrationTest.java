@@ -106,6 +106,16 @@ class GroupIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void malformedGroupIdPathVariable_returns400_notUnauthorized() throws Exception {
+        AuthedUser caller = registerAndLogin();
+
+        mockMvc.perform(get("/api/groups/{groupId}", "not-a-uuid")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + caller.token()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
     void nonMember_cannotAccessGroupDetailsExpensesOrBalances() throws Exception {
         AuthedUser creator = registerAndLogin();
         AuthedUser outsider = registerAndLogin();
