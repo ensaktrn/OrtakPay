@@ -1,14 +1,18 @@
 "use client";
 
-import { Skeleton } from "@/components/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCreateExpense } from "@/hooks/useCreateExpense";
 import { useGroup } from "@/hooks/useGroup";
 import { extractErrorMessage } from "@/lib/api";
 import type { Group, ParticipantInput } from "@/types/groups";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { use, useState } from "react";
+import { use } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 const participantFormSchema = z.object({
@@ -105,7 +109,7 @@ export default function NewExpensePage(props: PageProps<"/groups/[groupId]/expen
   if (groupQuery.isError || !groupQuery.data) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center">
-        <p className="text-red-600">Grup yüklenirken bir hata oluştu.</p>
+        <p className="text-muted-foreground">Grup yüklenirken bir hata oluştu.</p>
       </div>
     );
   }
@@ -120,7 +124,6 @@ export default function NewExpensePage(props: PageProps<"/groups/[groupId]/expen
 function NewExpenseForm({ groupId, group }: { groupId: string; group: Group }) {
   const router = useRouter();
   const createExpense = useCreateExpense(groupId);
-  const [formError, setFormError] = useState<string | null>(null);
   const members = group.members ?? [];
 
   const {
@@ -157,7 +160,6 @@ function NewExpenseForm({ groupId, group }: { groupId: string; group: Group }) {
   const amountValue = Number(amount) || 0;
 
   async function onSubmit(values: ExpenseFormValues) {
-    setFormError(null);
     const selected = values.participants.filter((p) => p.selected);
     const participantsPayload: ParticipantInput[] = selected.map((p) => ({
       userId: p.userId,
@@ -172,50 +174,34 @@ function NewExpenseForm({ groupId, group }: { groupId: string; group: Group }) {
         splitType: values.splitType,
         participants: participantsPayload,
       });
+      toast.success("Masraf eklendi");
       router.push(`/groups/${groupId}`);
     } catch (err) {
-      setFormError(extractErrorMessage(err));
+      toast.error(extractErrorMessage(err));
     }
   }
 
   return (
     <div className="mx-auto w-full max-w-lg flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Yeni Masraf Ekle</h1>
+      <h1 className="mb-6 font-heading text-2xl font-bold">Yeni Masraf</h1>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="description" className="text-sm font-medium">
-            Açıklama
-          </label>
-          <input
-            id="description"
-            type="text"
-            className="rounded border border-black/20 px-3 py-2 dark:border-white/20"
-            {...register("description")}
-          />
-          {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="description">Açıklama</Label>
+          <Input id="description" type="text" {...register("description")} />
+          {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="amount" className="text-sm font-medium">
-            Tutar
-          </label>
-          <input
-            id="amount"
-            type="number"
-            step="0.01"
-            className="rounded border border-black/20 px-3 py-2 dark:border-white/20"
-            {...register("amount")}
-          />
-          {errors.amount && <p className="text-sm text-red-600">{errors.amount.message}</p>}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="amount">Tutar</Label>
+          <Input id="amount" type="number" step="0.01" {...register("amount")} />
+          {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="paidBy" className="text-sm font-medium">
-            Ödeyen
-          </label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="paidBy">Ödeyen</Label>
           <select
             id="paidBy"
-            className="rounded border border-black/20 px-3 py-2 dark:border-white/20"
+            className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
             {...register("paidBy")}
           >
             {members.map((member) => (
@@ -224,16 +210,14 @@ function NewExpenseForm({ groupId, group }: { groupId: string; group: Group }) {
               </option>
             ))}
           </select>
-          {errors.paidBy && <p className="text-sm text-red-600">{errors.paidBy.message}</p>}
+          {errors.paidBy && <p className="text-sm text-destructive">{errors.paidBy.message}</p>}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="splitType" className="text-sm font-medium">
-            Paylaşım Türü
-          </label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="splitType">Paylaşım Türü</Label>
           <select
             id="splitType"
-            className="rounded border border-black/20 px-3 py-2 dark:border-white/20"
+            className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
             {...register("splitType")}
           >
             <option value="EQUAL">Eşit</option>
@@ -250,21 +234,22 @@ function NewExpenseForm({ groupId, group }: { groupId: string; group: Group }) {
               <input
                 type="checkbox"
                 id={`participant-${index}`}
+                className="size-4 rounded border-input accent-primary"
                 {...register(`participants.${index}.selected`)}
               />
-              <label htmlFor={`participant-${index}`} className="flex-1">
+              <Label htmlFor={`participant-${index}`} className="flex-1 font-normal">
                 {member.displayName ?? member.email}
-              </label>
+              </Label>
               {/* Only for participants that are actually selected - a value
                   input for someone excluded from the split makes no sense
                   and would be confusing left on screen. */}
               {splitType !== "EQUAL" && participants[index]?.selected && (
-                <input
+                <Input
                   id={`participant-value-${index}`}
                   type="number"
                   step="0.01"
                   placeholder={splitType === "PERCENTAGE" ? "%" : "tutar"}
-                  className="w-24 rounded border border-black/20 px-2 py-1 dark:border-white/20"
+                  className="w-24"
                   {...register(`participants.${index}.value`)}
                 />
               )}
@@ -272,14 +257,12 @@ function NewExpenseForm({ groupId, group }: { groupId: string; group: Group }) {
           ))}
 
           {splitType === "EXACT" && (
-            <p
-              className={Math.abs(selectedSum - amountValue) > 0.01 ? "text-sm text-red-600" : "text-sm text-green-600"}
-            >
+            <p className={`text-sm ${Math.abs(selectedSum - amountValue) > 0.01 ? "text-destructive" : "text-credit"}`}>
               Toplam: {selectedSum.toFixed(2)} / {amountValue.toFixed(2)} TL
             </p>
           )}
           {splitType === "PERCENTAGE" && (
-            <p className={Math.abs(selectedSum - 100) > 0.01 ? "text-sm text-red-600" : "text-sm text-green-600"}>
+            <p className={`text-sm ${Math.abs(selectedSum - 100) > 0.01 ? "text-destructive" : "text-credit"}`}>
               Toplam: %{selectedSum.toFixed(1)}
             </p>
           )}
@@ -289,19 +272,13 @@ function NewExpenseForm({ groupId, group }: { groupId: string; group: Group }) {
               (participants.{index}.userId/selected/value) - confirmed by
               inspecting the live formState rather than guessing. */}
           {typeof errors.participants?.root?.message === "string" && (
-            <p className="text-sm text-red-600">{errors.participants.root.message}</p>
+            <p className="text-sm text-destructive">{errors.participants.root.message}</p>
           )}
         </div>
 
-        {formError && <p className="text-sm text-red-600">{formError}</p>}
-
-        <button
-          type="submit"
-          disabled={createExpense.isPending}
-          className="rounded bg-foreground px-4 py-2 text-background disabled:opacity-50"
-        >
-          {createExpense.isPending ? "Kaydediliyor..." : "Masraf Ekle"}
-        </button>
+        <Button type="submit" loading={createExpense.isPending} className="mt-2">
+          Masraf Ekle
+        </Button>
       </form>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
-import { Skeleton } from "@/components/skeleton";
+import { ListRowSkeleton } from "@/components/list-row-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
@@ -27,7 +28,8 @@ export default function GroupsLayout({ children }: { children: ReactNode }) {
     return (
       <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
         <Skeleton className="mb-6 h-8 w-40" />
-        <Skeleton className="h-20 w-full" />
+        <ListRowSkeleton />
+        <ListRowSkeleton />
       </div>
     );
   }

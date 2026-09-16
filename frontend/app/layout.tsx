@@ -1,8 +1,9 @@
 import { Header } from "@/components/header";
+import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/lib/query-client";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,6 +16,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["600", "700"],
+});
+
 export const metadata: Metadata = {
   title: "OrtakPay",
   description: "Masraf paylaşım platformu",
@@ -24,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* QueryClientProvider wraps AuthProvider (not the reverse): AuthProvider
@@ -38,6 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             {children}
           </AuthProvider>
         </QueryProvider>
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );
